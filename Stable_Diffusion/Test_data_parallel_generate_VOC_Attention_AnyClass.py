@@ -166,7 +166,7 @@ class LocalBlend:
 
     def __call__(self, x_t, attention_store):
         k = 1
-        maps = attention_store["down_cross"][2:4] + attention_store["up_cross"][:3]
+        maps = attention_store["down_cross"][2:4] + attention_store["up_cross"][:3]        //构建map
         maps = [item.reshape(self.alpha_layers.shape[0], -1, 1, 16, 16, MAX_NUM_WORDS) for item in maps]
         maps = torch.cat(maps, dim=1)
         maps = (maps * self.alpha_layers).sum(-1).mean(1)
@@ -179,7 +179,7 @@ class LocalBlend:
         return x_t
        
     def __init__(self, prompts: List[str], words: [List[List[str]]], threshold=.3,tokenizer=None,device=None):
-        alpha_layers = torch.zeros(len(prompts),  1, 1, 1, 1, MAX_NUM_WORDS)
+        alpha_layers = torch.zeros(len(prompts),  1, 1, 1, 1, MAX_NUM_WORDS)              //构建张量
         for i, (prompt, words_) in enumerate(zip(prompts, words)):
             if type(words_) is str:
                 words_ = [words_]
@@ -191,22 +191,23 @@ class LocalBlend:
 
 
 class AttentionControl(abc.ABC):
+//提供了一个抽象类 AttentionControl，定义了注意力机制控制的接口，包括了在每一步进行处理的回调逻辑、每一步之间的操作、前向传播方法等。
     
-    def step_callback(self, x_t):
+    def step_callback(self, x_t):  //返回当前状态
         return x_t
     
     def between_steps(self):
         return
     
     @property
-    def num_uncond_att_layers(self):
+    def num_uncond_att_layers(self):     //这段代码是一个函数，其中的代码逻辑是根据全局变量LOW_RESOURCE的值返回不受条件限制的注意力层数。
         return self.num_att_layers if LOW_RESOURCE else 0
     
     @abc.abstractmethod
-    def forward (self, attn, is_cross: bool, place_in_unet: str):
+    def forward (self, attn, is_cross: bool, place_in_unet: str)://这段代码是一个函数，其中的代码逻辑是进行前向传播计算。该函数接受三个参数：attn表示注意力机制，is_cross表示是否进行交叉操作，place_in_unet表示在UNet中的位置。
         raise NotImplementedError
 
-    def __call__(self, attn, is_cross: bool, place_in_unet: str):
+    def __call__(self, attn, is_cross: bool, place_in_unet: str):这段代码是一个类的方法，该方法的作用是对注意力机制进行一次前向传播计算，并返回计算结果。该方法接受三个参数：attn表示注意力机制，is_cross表示是否进行交叉操作，place_in_unet表示在UNet中的位置。
         if self.cur_att_layer >= self.num_uncond_att_layers:
             if LOW_RESOURCE:
                 attn = self.forward(attn, is_cross, place_in_unet)
@@ -238,11 +239,11 @@ class EmptyControl(AttentionControl):
 class AttentionStore(AttentionControl):
 
     @staticmethod
-    def get_empty_store():
+    def get_empty_store()://这段代码定义了一个函数 get_empty_store()，该函数返回一个空的存储器（字典）。
         return {"down_cross": [], "mid_cross": [], "up_cross": [],
                 "down_self": [],  "mid_self": [],  "up_self": []}
 
-    def forward(self, attn, is_cross: bool, place_in_unet: str):
+    def forward(self, attn, is_cross: bool, place_in_unet: str)://这段代码是一个类的方法，该方法的作用是进行一次前向传播计算，并返回计算结果。该方法接受三个参数：attn表示注意力机制，is_cross表示是否进行交叉操作，place_in_unet表示在UNet中的位置
         key = f"{place_in_unet}_{'cross' if is_cross else 'self'}"
 #         if attn.shape[1] <= 128 ** 2:  # avoid memory overhead
         self.step_store[key].append(attn)
