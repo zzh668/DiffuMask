@@ -40,7 +40,7 @@ coco_category_to_id_v1 = { 'aeroplane':0,
     'tvmonitor':19}
 
 
-def get_findContours(mask):
+def get_findContours(mask)://原始图像像素mask
     
     idxx = np.unique(mask)
     if len(idxx)==1:
@@ -48,50 +48,60 @@ def get_findContours(mask):
     else:
         idxx = idxx[1]
     mask_instance = (mask>0.5 * 1).astype(np.uint8) 
-    ontours, hierarchy = cv2.findContours(mask_instance.copy(),cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)  #cv2.RETR_EXTERNAL 定义只检测外围轮廓
-    
-    min_area = 0
-    polygon_ins = []
-    x,y,w,h = 0,0,0,0
+    //这个操作将逻辑值转换为无符号8位整数
+    ontours, hierarchy = cv2.findContours(mask_instance.copy(),cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)  
+    #cv2.RETR_EXTERNAL 定义只检测外围轮廓
+    //ontours表示一个轮廓的点集。每个轮廓都是一个由连续的点（x，y坐标）组成的曲线
+    //hierarchy表示图像中的轮廓之间的层次关系
+
+    min_area = 0  //最小面积阈值
+    polygon_ins = [] //一个空列表，用于存储多边形轮廓
+    x,y,w,h = 0,0,0,0  //坐标宽高
     
     image_h, image_w = mask.shape[0:2]
-    gt_kernel = np.zeros((image_h,image_w), dtype='uint8')
+    gt_kernel = np.zeros((image_h,image_w), dtype='uint8')//：一个与mask图像大小相同的全零图像，用于存储实例标记
     for cnt in ontours:
         # 外接矩形框，没有方向角
         x_ins_t, y_ins_t, w_ins_t, h_ins_t = cv2.boundingRect(cnt)
 
         if w_ins_t*h_ins_t<1500:
             continue
-        cv2.fillPoly(gt_kernel, [cnt], int(idxx))
+        cv2.fillPoly(gt_kernel, [cnt], int(idxx))  //填充像素大于1500的图像
 
     return gt_kernel
 
 
 def aug(version="Augmentation_One",size="2",image_id=0):
-
+//size 要水平组合的图像数量
 
 #     version = "Augmentation_One"
     image_path = "./DiffSeg_Data/{}/train_image".format(version)
     mask_path = "./DiffSeg_Data/{}/ground_truth".format(version)
 
     image_list = [i for i in os.listdir(image_path) if "jpg" in i]
+    //筛选jpg文件
     image_list = [i for i in image_list if os.path.exists("./DiffSeg_Data/{}/ground_truth/{}".format(version,i.replace("jpg","png")))]
+   //选出存在有掩码文件的图片
 
 #     image_id = 6000
 #     size=2
     for idx in tqdm(range(4000)):
         list_image = []
+        //掩码图像
         list_mask = []
+        //掩码数据
         for x in range(size):
             image_1 = choice(image_list)
+            //随机获取图片
             mask_1 = image_1.replace("jpg","png")
-
+           //获得之前image_1的掩码图片
 
             img1 = cv2.imread("./DiffSeg_Data/{}/train_image/{}".format(version,image_1))
+            //读取文件像素值
             mas1 = cv2.imread("./DiffSeg_Data/{}/ground_truth/{}".format(version,mask_1))
+            //读取对应掩码的像素值
 
-
-            for y in range(size-1):
+            for y in range(size-1)://一系列水平组合的图像和掩码对
                 image_2 = choice(image_list)
                 mask_2 = image_2.replace("jpg","png")
 
@@ -109,13 +119,19 @@ def aug(version="Augmentation_One",size="2",image_id=0):
         for i in range(1,size):
 
             list_image_ha = np.concatenate((list_image_ha, list_image[i])) 
+            //这行代码使用NumPy的concatenate函数将img1和img2在水平方向上（即沿着列的方向）拼接起来。
             list_mask_ha = np.concatenate((list_mask_ha, list_mask[i])) 
+            //将mas1和mas2在水平方向上拼接起来。
+
+
 
     #     list_image = cv2.resize(list_image, (512, 512), interpolation=cv2.INTER_CUBIC)
+//使用OpenCV的cv2.resize函数来调整list_image列表中所有图像的大小
         cv2.imwrite("./DiffSeg_Data/{}/train_image_2/new_{}.jpg".format(version,image_id),list_image_ha)
         cv2.imwrite("./DiffSeg_Data/{}/ground_truth_2/new_{}.png".format(version,image_id),list_mask_ha)
+        
         image_id+=1
-    
+         //保存对应的数据增强文件
     return image_id
 
     
@@ -148,6 +164,6 @@ if __name__ == '__main__':
     image_id = 6000
     for size in [2,3]:
         image_id = aug(version="Augmentation_One",size=size,image_id=image_id)
-    
+    //进行两次数据增强
     
    
